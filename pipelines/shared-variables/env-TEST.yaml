@@ -1,0 +1,7 @@
+variables:
+-  name: region
+   value: westeu
+-  name: resourceGroupName
+   value: 'rg-sample-test'
+-  name: serviceConnection
+   value: 'Sample-Test-Deployment'

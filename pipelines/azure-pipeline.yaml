@@ -1,0 +1,186 @@
+name: $(Date:yyyyMMdd)$(Rev:.r)
+
+parameters:
+  - name: deployAction
+    displayName: Deploy action
+    type: string
+    default: none
+    values:
+      - none
+      - iac
+
+  - name: deployEnvironment
+    displayName: Deploy to environment
+    type: string
+    default: DEV
+    values:
+        - DEV
+        - TEST
+        - PROD
+
+  - name: location
+    displayName: Resurce location
+    type: string
+    default: 'West Europe'
+    values:
+        - 'West Europe'
+
+trigger:
+- none
+
+variables:
+- template: shared-variables/build-variables.yaml
+- template: shared-variables/env-${{ parameters.deployEnvironment }}.yaml
+- name: subscription
+  value: ${{ variables.serviceConnection }}
+- name: deploy
+  value: '${{ parameters.deployAction }}'
+- name: bicepDeploymentName
+  value: '$(Build.BuildNumber)'
+- name: bicepPostDeploymentName
+  value: '$(Build.BuildNumber)-p'
+
+
+stages:
+
+  - stage: Lint
+    jobs:
+      - job: LintCode
+        displayName: Lint code
+        steps:
+          - script: |
+              az bicep build --file '/infrastructure/main.bicep'
+            name: LintBicepCode
+            displayName: Run Bicep Linter
+
+  - stage: Validate
+    displayName: Validate Bicep code
+    dependsOn: Lint
+    jobs:
+      - job: ValidateBicepCode
+        displayName: Validate Bicep code
+        continueOnError: true
+        steps:
+          - task: AzureCLI@2
+            displayName: Run Preflight validation
+            inputs:
+              azureSubscription: $(subscription)
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az deployment group validate --resource-group $(resourceGroupName) \
+                  --template-file 'infrastructure/main.bicep' \
+                  --parameters 'infrastructure/parameters/main.${{ parameters.deployEnvironment }}.bicepparam'
+  
+  - stage: Preview
+    displayName: Preview Azure Changes
+    dependsOn: Validate
+    jobs:
+      - job: PreviewAzureChanges
+        displayName: Preview Azure Changes
+        steps:
+            - task: AzureCLI@2
+              displayName: Run What-If Analysis
+              inputs:
+                azureSubscription: $(subscription)
+                scriptType: 'bash'
+                scriptLocation: 'inlineScript'
+                inlineScript: |
+                  az deployment group what-if --resource-group $(resourceGroupName) \
+                    --template-file 'infrastructure/main.bicep' \
+                    --parameters 'infrastructure/parameters/main.${{ parameters.deployEnvironment }}.bicepparam'
+
+  - stage: Build
+    displayName: Build all project parts
+    dependsOn: Preview
+    jobs:
+      - job: Build
+        pool:
+          vmImage: ${{ variables.vmImage }}
+        steps:
+        
+          # Build and Publish IaC files 
+          - task: CopyFiles@2
+            displayName: Copy IaC files
+            inputs:
+              SourceFolder: 'infrastructure'
+              TargetFolder: '$(Build.ArtifactStagingDirectory)/iac'
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish IaC Files
+            inputs:
+              targetPath: '$(Build.ArtifactStagingDirectory)/iac'
+              artifact: 'iac'
+
+  - stage: Deploy_Dev
+    displayName: Deploy to Dev env.
+    dependsOn: 
+      - Build
+    condition: and(ne(variables.deploy, 'none'), succeeded(), eq('${{ parameters.deployEnvironment }}', 'DEV'))
+    jobs:
+      - deployment: Deploy_to_Dev
+        displayName: 'Deploy To DEV'
+        strategy:
+          runOnce:
+            deploy: 
+              steps:
+                - ${{ if or(eq(variables.deploy, 'iac'), eq(variables.deploy, 'iac+code')) }}:
+                  - template: deploy-iac-pipeline.yaml
+                    parameters:
+                      deployEnvironment: ${{ parameters.deployEnvironment }}
+                      location: ${{ parameters.location }}
+                - ${{ if or(eq(variables.deploy, 'code'), eq(variables.deploy, 'iac+code')) }}:
+                  - template: deploy-code-pipeline.yaml
+                    parameters:
+                      deployEnvironment: ${{ parameters.deployEnvironment }}
+                      location: ${{ parameters.location }}
+
+  - stage: Deploy_Test
+    displayName: Deploy to Test env.
+    dependsOn: 
+      - Build
+    condition: and(ne(variables.deploy, 'none'), succeeded(), eq('${{ parameters.deployEnvironment }}', 'TEST'))
+    jobs:
+      - deployment: Deploy_to_Test
+        displayName: 'Deploy To Test'
+        continueOnError: true
+        strategy:
+          runOnce:
+            deploy: 
+              steps: 
+                - ${{ if or(eq(variables.deploy, 'iac'), eq(variables.deploy, 'iac+code')) }}:
+                  - template: deploy-iac-pipeline.yaml
+                    parameters:
+                      deployEnvironment: ${{ parameters.deployEnvironment }}
+                      location: ${{ parameters.location }}
+
+                - ${{ if or(eq(variables.deploy, 'code'), eq(variables.deploy, 'iac+code')) }}:
+                  - template: deploy-code-pipeline.yaml
+                    parameters:
+                      deployEnvironment: ${{ parameters.deployEnvironment }}
+                      location: ${{ parameters.location }}
+
+  - stage: Deploy_Prod
+    displayName: Deploy to Prod env.
+    dependsOn: 
+      - Build
+    condition: and(ne(variables.deploy, 'none'), succeeded(), eq('${{ parameters.deployEnvironment }}', 'PROD'))
+    jobs:
+      - deployment: Deploy_to_Prod
+        displayName: 'Deploy To Prod'
+        continueOnError: true
+        strategy:
+          runOnce:
+            deploy: 
+              steps: 
+                - ${{ if or(eq(variables.deploy, 'iac'), eq(variables.deploy, 'iac+code')) }}:
+                  - template: deploy-iac-pipeline.yaml
+                    parameters:
+                      deployEnvironment: ${{ parameters.deployEnvironment }}
+                      location: ${{ parameters.location }}
+
+                - ${{ if or(eq(variables.deploy, 'code'), eq(variables.deploy, 'iac+code')) }}:
+                  - template: deploy-code-pipeline.yaml
+                    parameters:
+                      deployEnvironment: ${{ parameters.deployEnvironment }}
+                      location: ${{ parameters.location }}

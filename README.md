@@ -114,8 +114,8 @@ After creating a deployment template and its required parameters, validate the p
 ```bash
 az deployment group validate \
   --resource-group "<resource-group-name>" \
-  --template-file "./main.bicep" \
-  --parameters "@main.bicepparam"
+  --template-file "./infrastructure/main.bicep" \
+  --parameters "./infrastructure/parameters/main.{env}.bicepparam"
 ```
 
 ### 5. Preview the deployment
@@ -125,8 +125,8 @@ Use a what-if deployment to review the expected infrastructure changes:
 ```bash
 az deployment group what-if \
   --resource-group "<resource-group-name>" \
-  --template-file "./main.bicep" \
-  --parameters "@main.bicepparam"
+  --template-file "./infrastructure/main.bicep" \
+  --parameters "./infrastructure/parameters/main.{env}.bicepparam"
 ```
 
 ### 6. Deploy the infrastructure
@@ -136,72 +136,13 @@ After reviewing the proposed changes and confirming the configuration:
 ```bash
 az deployment group create \
   --resource-group "<resource-group-name>" \
-  --template-file "./main.bicep" \
-  --parameters "@main.bicepparam"
+  --template-file "./infrastructure/main.bicep" \
+  --parameters "./infrastructure/parameters/main.{env}.bicepparam"
 ```
 
 Replace the example paths and parameter values with those applicable to the module you are deploying. Ensure the target resource group exists and that you have the required permissions.
 
 > **Note:** The commands above are examples. They require a matching Bicep template, parameter file, and appropriate Azure permissions. Deploy only the modules and resources that have been implemented in the repository.
-
-## Importing an OpenAPI definition into API Management
-
-Use `infrastructure/modules/apim/api.bicep` to import the bundled OpenAPI definition into an existing API Management service. The specification is loaded by the module from `infrastructure/modules/apim/openapi.json`:
-
-```bicep
-module ordersApi './modules/apim/api.bicep' = {
-  name: 'orders-api'
-  params: {
-    apiManagementName: 'apim-example'
-    apiName: 'orders'
-  }
-}
-```
-
-The example specification defines `GET /items`, `POST /items`, and `DELETE /items/{itemId}`. Edit `openapi.json` to describe your API. The module defaults the API display name and path to `apiName` and requires a subscription key by default; override `displayName`, `apiPath`, `protocols`, or `subscriptionRequired` as needed.
-
-## API Management named values
-
-Use `infrastructure/modules/apim/namedValue.bicep` for plain text and secret named values. Set `namedValueType` to `text` or `secret`; pass secret values through a secure parameter, not a literal in the template. Use `infrastructure/modules/apim/namedValueKeyVault.bicep` to reference a Key Vault secret:
-
-```bicep
-@secure()
-param backendApiKey string
-
-module apiBaseUrl './modules/apim/namedValue.bicep' = {
-  name: 'api-base-url'
-  params: {
-    apiManagementName: 'apim-example'
-    namedValueName: 'api-base-url'
-    displayName: 'api-base-url'
-    value: 'https://api.example.com'
-    namedValueType: 'text'
-  }
-}
-
-module backendKey './modules/apim/namedValue.bicep' = {
-  name: 'backend-api-key'
-  params: {
-    apiManagementName: 'apim-example'
-    namedValueName: 'backend-api-key'
-    displayName: 'backend-api-key'
-    value: backendApiKey
-    namedValueType: 'secret'
-  }
-}
-
-module databasePassword './modules/apim/namedValueKeyVault.bicep' = {
-  name: 'database-password'
-  params: {
-    apiManagementName: 'apim-example'
-    namedValueName: 'database-password'
-    displayName: 'database-password'
-    keyVaultSecretIdentifier: 'https://example.vault.azure.net/secrets/database-password'
-  }
-}
-```
-
-The Key Vault example uses a versionless secret URI so API Management can follow secret rotations. Grant the API Management identity used by the module permission to read the secret; provide `identityClientId` when using a user-assigned identity. The module uses the system-assigned identity when `identityClientId` is left empty.
 
 ## Infrastructure as Code Best Practices
 
