@@ -37,7 +37,7 @@ The goal is to demonstrate how infrastructure can be managed through version-con
 
 ## Repository Structure
 
-Infrastructure modules are grouped by category, with deployment pipelines kept alongside the infrastructure code.
+Infrastructure modules are grouped by category under `infrastructure/modules/`. Azure DevOps pipelines are stored in the repository-level `pipelines/` directory.
 
 ```text
 azure-bicep-library/
@@ -55,14 +55,24 @@ azure-bicep-library/
 │   │   ├── storage/
 │   │   └── web/
 │   ├── parameters/
-│   ├── shared/
-│   └── pipelines/
-│       └── <pipeline files>
+│   │   ├── main.DEV.bicepparam
+│   │   ├── main.PROD.bicepparam
+│   │   └── main.TEST.bicepparam
+│   └── shared/
+│       ├── prefixes.json
+│       └── role-definitions.json
+├── pipelines/
+│   ├── azure-pipeline.yaml
+│   ├── deploy-iac-pipeline.yaml
+│   └── shared-variables/
+│       ├── build-variables.yaml
+│       ├── env-DEV.yaml
+│       └── env-TEST.yaml
 ├── LICENSE
 └── README.md
 ```
 
-Each folder under `modules/` groups related Bicep modules. Azure pipeline definitions are stored in `infrastructure/pipelines/`.
+Each folder under `infrastructure/modules/` groups related Bicep modules. Azure pipeline definitions and their shared variables are stored in the repository-level `pipelines/` directory.
 
 ## Getting Started
 

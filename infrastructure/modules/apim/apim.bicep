@@ -1,6 +1,6 @@
 @description('The email address of the owner of the service')
 @minLength(1)
-param publisherEmail string = 'jeevithasaran1994@gmail.com'
+param publisherEmail string = 'test@example.com'
 
 @description('The name of the owner of the service')
 @minLength(1)
@@ -14,7 +14,7 @@ param publisherName string = 'apimPublisher'
 param sku string = 'Developer'
 
 @description('Organization name')
-param orgName string = 'jeevithabr'
+param orgName string = 'testorg'
 
 @description('The instance size of this API Management service. This should be a multiple of the number of availability zones getting deployed.')
 param skuCount int = 1
@@ -86,7 +86,6 @@ resource apimResource 'Microsoft.ApiManagement/service@2022-08-01' = {
   properties: {
     publisherEmail: publisherEmail
     publisherName: publisherName
-    virtualNetworkType: 'Internal'
     publicIpAddressId: apimPublicIp.id
     customProperties: {
       'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Ciphers.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA': 'false'

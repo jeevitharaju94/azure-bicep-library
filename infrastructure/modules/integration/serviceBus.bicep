@@ -12,12 +12,21 @@ param serviceBusNamespaceZoneRedundant bool = false
 ])
 param skuName string = 'Premium'
 
-param vnetName string
-param subnetName string
+param vnetName string = ''
+param subnetName string = ''
 
 param logAnalyticsWorkspaceName string
 
-param ipRules array
+param ipRules array = []
+
+var virtualNetworkRules = (!empty(vnetName) && !empty(subnetName)) ? [
+  {
+    subnet: {
+      id: resourceId('Microsoft.Network/virtualNetworks/subnets', vnetName, subnetName)
+    }
+    ignoreMissingVnetServiceEndpoint: false
+  }
+] : []
 
 
 resource logAnalyticsWorkspaceRes 'Microsoft.OperationalInsights/workspaces@2022-10-01' existing = {
@@ -45,15 +54,7 @@ resource namespaceNetworkRuleSets 'Microsoft.ServiceBus/namespaces/networkrulese
     publicNetworkAccess: 'Enabled'
     defaultAction: 'Deny'
     // add any subnets here if needed, for example if you want to allow access from a subnet in your VNET
-    virtualNetworkRules: [
-      {
-        subnet: {
-          id: resourceId('Microsoft.Network/virtualNetworks/subnets', vnetName, subnetName)
-        }
-        ignoreMissingVnetServiceEndpoint: false
-      }
-
-    ]
+    virtualNetworkRules: virtualNetworkRules
     ipRules: ipRules
     trustedServiceAccessEnabled: false
   }
