@@ -20,6 +20,8 @@ param protocols array = [
 @description('Whether a subscription key is required to access the API.')
 param subscriptionRequired bool = true
 
+var urlSuffix = '/test'
+
 resource apiManagementService 'Microsoft.ApiManagement/service@2022-08-01' existing = {
   name: apiManagementName
 }
@@ -35,6 +37,34 @@ resource api 'Microsoft.ApiManagement/service/apis@2022-08-01' = {
     protocols: protocols
     subscriptionRequired: subscriptionRequired
     value: loadTextContent('./openapi.json')
+  }
+}
+
+// API versioning
+
+// Create a VersionSet for the Supplier-External
+resource ApiVersionSet 'Microsoft.ApiManagement/service/apiVersionSets@2023-09-01-preview' = {
+  name: '${apiName}_VersionSet'
+  parent:apiManagementService
+  properties: {
+    displayName: apiName
+    versioningScheme: 'Segment'
+  }
+}
+
+// Create V1 version of the API and add it to the VersionSet
+resource projectServicesExternalApiV1 'Microsoft.ApiManagement/service/apis@2023-09-01-preview' = {
+  name: '${apiName}-v1'
+  parent:apiManagementService
+  properties: {
+    displayName: apiName
+    format: 'openapi+json'
+    path: apiPath
+    protocols: protocols
+    apiVersion:'v1'
+    apiVersionSetId:ApiVersionSet.id
+    subscriptionRequired: false
+    isCurrent:true
   }
 }
 

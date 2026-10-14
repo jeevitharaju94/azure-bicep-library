@@ -85,14 +85,6 @@ resource logicAppResource 'Microsoft.Web/sites@2022-03-01' = {
           name: 'WORKFLOWS_MANAGEMENT_BASE_URI'
           value: environment().resourceManager
         }
-        {
-          name: 'WEBSITE_CONTENTOVERVNET'
-          value: '1'
-        }
-        {
-          name: 'WEBSITE_VNET_ROUTE_ALL'
-          value: '1'
-        }
       ]
       ftpsState: 'Disabled'
     }

@@ -8,6 +8,7 @@ parameters:
     values:
       - none
       - iac
+      - code
 
   - name: deployEnvironment
     displayName: Deploy to environment
@@ -16,7 +17,6 @@ parameters:
     values:
         - DEV
         - TEST
-        - PROD
 
   - name: location
     displayName: Resurce location
@@ -49,7 +49,7 @@ stages:
         displayName: Lint code
         steps:
           - script: |
-              az bicep build --file '/infrastructure/main.bicep'
+              az bicep build --file 'infrastructure/main.bicep'
             name: LintBicepCode
             displayName: Run Bicep Linter
 
@@ -143,31 +143,6 @@ stages:
     jobs:
       - deployment: Deploy_to_Test
         displayName: 'Deploy To Test'
-        continueOnError: true
-        strategy:
-          runOnce:
-            deploy: 
-              steps: 
-                - ${{ if or(eq(variables.deploy, 'iac'), eq(variables.deploy, 'iac+code')) }}:
-                  - template: deploy-iac-pipeline.yaml
-                    parameters:
-                      deployEnvironment: ${{ parameters.deployEnvironment }}
-                      location: ${{ parameters.location }}
-
-                - ${{ if or(eq(variables.deploy, 'code'), eq(variables.deploy, 'iac+code')) }}:
-                  - template: deploy-code-pipeline.yaml
-                    parameters:
-                      deployEnvironment: ${{ parameters.deployEnvironment }}
-                      location: ${{ parameters.location }}
-
-  - stage: Deploy_Prod
-    displayName: Deploy to Prod env.
-    dependsOn: 
-      - Build
-    condition: and(ne(variables.deploy, 'none'), succeeded(), eq('${{ parameters.deployEnvironment }}', 'PROD'))
-    jobs:
-      - deployment: Deploy_to_Prod
-        displayName: 'Deploy To Prod'
         continueOnError: true
         strategy:
           runOnce:

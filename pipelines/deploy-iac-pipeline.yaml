@@ -1,0 +1,58 @@
+parameters:
+  - name: deployEnvironment
+    type: string
+
+  - name: location
+    type: string
+
+steps:
+  - download: none
+
+  - task: DownloadPipelineArtifact@2
+    displayName: Download IaC artifact
+    inputs:
+      buildType: current
+      artifactName: iac
+      targetPath: '$(Pipeline.Workspace)/iac'
+
+  - task: AzureCLI@2
+    displayName: Deploy Bicep infrastructure to ${{ parameters.deployEnvironment }}
+    inputs:
+      azureSubscription: $(subscription)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -euo pipefail
+
+        template_file="$ARTIFACT_PATH/main.bicep"
+        parameter_file="$ARTIFACT_PATH/parameters/main.${DEPLOY_ENVIRONMENT}.bicepparam"
+
+        if [[ ! -f "$template_file" ]]; then
+          echo "Bicep template not found in downloaded artifact: $template_file" >&2
+          exit 1
+        fi
+
+        if [[ ! -f "$parameter_file" ]]; then
+          echo "Bicep parameter file not found in downloaded artifact: $parameter_file" >&2
+          exit 1
+        fi
+
+        location="$(printf '%s' "$LOCATION_DISPLAY" | tr -d ' ' | tr '[:upper:]' '[:lower:]')"
+
+        az group create \
+          --name "$RESOURCE_GROUP" \
+          --location "$location" \
+          --output none
+
+        az deployment group create \
+          --resource-group "$RESOURCE_GROUP" \
+          --name "$DEPLOYMENT_NAME" \
+          --template-file "$template_file" \
+          --parameters "$parameter_file" "location=$location" \
+          --output json
+    env:
+      ARTIFACT_PATH: '$(Pipeline.Workspace)/iac'
+      DEPLOY_ENVIRONMENT: ${{ parameters.deployEnvironment }}
+      DEPLOYMENT_NAME: $(bicepDeploymentName)
+      LOCATION_DISPLAY: ${{ parameters.location }}
+      RESOURCE_GROUP: $(resourceGroupName)

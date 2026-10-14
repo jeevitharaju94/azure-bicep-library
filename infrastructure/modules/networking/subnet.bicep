@@ -28,7 +28,7 @@ resource routeTableRes 'Microsoft.Network/routeTables@2023-04-01' existing = {
 
 //Egress NSGs
 resource egressNetworkSecurityGroup 'Microsoft.Network/networkSecurityGroups@2022-09-01' = {
-  name: 'func-${shortName}-egress-nsg'
+  name: 'test-${shortName}-egress-nsg'
   location: location
   properties: {
     securityRules: [
@@ -58,7 +58,7 @@ resource egressNetworkSecurityGroup 'Microsoft.Network/networkSecurityGroups@202
 //Egress subnets
 resource egressSubnetResource 'Microsoft.Network/virtualNetworks/subnets@2023-04-01' = {
   parent: vnetResource
-  name: 'func-${shortName}-egress'
+  name: 'test-${shortName}-egress'
   dependsOn: [
     egressNetworkSecurityGroup
   ]
@@ -68,7 +68,7 @@ resource egressSubnetResource 'Microsoft.Network/virtualNetworks/subnets@2023-04
       id: routeTableRes.id
     }
     networkSecurityGroup: {
-      id: resourceId('Microsoft.Network/networkSecurityGroups', 'func-${shortName}-egress-nsg')
+      id: resourceId('Microsoft.Network/networkSecurityGroups', 'test-${shortName}-egress-nsg')
     }
     serviceEndpoints: [
       {
@@ -136,7 +136,7 @@ resource egressSubnetResource 'Microsoft.Network/virtualNetworks/subnets@2023-04
 
 //Ingress NSGs
 resource ingressNetworkSecurityGroup 'Microsoft.Network/networkSecurityGroups@2022-09-01' = {
-  name: 'func-${shortName}-ingress-nsg'
+  name: 'test-${shortName}-ingress-nsg'
   dependsOn: [
     egressSubnetResource
   ]
@@ -163,10 +163,10 @@ resource ingressNetworkSecurityGroup 'Microsoft.Network/networkSecurityGroups@20
         }
       }
       {
-        name: 'AllowTrafficFromFuncAppEgSubnet'
+        name: 'AllowTrafficFromTestAppEgSubnet'
         type: 'Microsoft.Network/networkSecurityGroups/securityRules'
         properties: {
-          description: 'Allow Traffic from func-${shortName}-egress subnet.'
+          description: 'Allow Traffic from test-${shortName}-egress subnet.'
           protocol: 'TCP'
           sourcePortRange: '*'
           destinationPortRange: '443'
@@ -188,7 +188,7 @@ resource ingressNetworkSecurityGroup 'Microsoft.Network/networkSecurityGroups@20
 //Ingress subnets
 resource ingressSubnetResource 'Microsoft.Network/virtualNetworks/subnets@2023-04-01' = {
   parent: vnetResource
-  name: 'func-${shortName}-ingress'
+  name: 'test-${shortName}-ingress'
   dependsOn: [
     ingressNetworkSecurityGroup
   ]
@@ -198,7 +198,7 @@ resource ingressSubnetResource 'Microsoft.Network/virtualNetworks/subnets@2023-0
       id: routeTableRes.id
     }
     networkSecurityGroup: {
-      id: resourceId('Microsoft.Network/networkSecurityGroups', 'func-${shortName}-ingress-nsg')
+      id: resourceId('Microsoft.Network/networkSecurityGroups', 'test-${shortName}-ingress-nsg')
     }
     serviceEndpoints: [
       {
