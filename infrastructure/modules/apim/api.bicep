@@ -50,7 +50,7 @@ resource ApiVersionSet 'Microsoft.ApiManagement/service/apiVersionSets@2023-09-0
 }
 
 // Create V1 version of the API and add it to the VersionSet
-resource projectServicesExternalApiV1 'Microsoft.ApiManagement/service/apis@2023-09-01-preview' = {
+resource ExternalApiV1 'Microsoft.ApiManagement/service/apis@2023-09-01-preview' = {
   name: '${apiName}-v1'
   parent:apiManagementService
   properties: {
