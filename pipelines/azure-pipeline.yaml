@@ -8,7 +8,6 @@ parameters:
     values:
       - none
       - iac
-      - code
 
   - name: deployEnvironment
     displayName: Deploy to environment
@@ -114,48 +113,34 @@ stages:
 
   - stage: Deploy_Dev
     displayName: Deploy to Dev env.
-    dependsOn: 
-      - Build
+    dependsOn: Build
     condition: and(ne(variables.deploy, 'none'), succeeded(), eq('${{ parameters.deployEnvironment }}', 'DEV'))
     jobs:
       - deployment: Deploy_to_Dev
-        displayName: 'Deploy To DEV'
+        displayName: Deploy to Dev
+        condition: eq(variables.deploy, 'iac')
         strategy:
           runOnce:
-            deploy: 
+            deploy:
               steps:
-                - ${{ if or(eq(variables.deploy, 'iac'), eq(variables.deploy, 'iac+code')) }}:
-                  - template: deploy-iac-pipeline.yaml
-                    parameters:
-                      deployEnvironment: ${{ parameters.deployEnvironment }}
-                      location: ${{ parameters.location }}
-                - ${{ if or(eq(variables.deploy, 'code'), eq(variables.deploy, 'iac+code')) }}:
-                  - template: deploy-code-pipeline.yaml
-                    parameters:
-                      deployEnvironment: ${{ parameters.deployEnvironment }}
-                      location: ${{ parameters.location }}
+              - template: deploy-iac-pipeline.yaml
+                parameters:
+                  deployEnvironment: ${{ parameters.deployEnvironment }}
+                  location: ${{ parameters.location }}
 
   - stage: Deploy_Test
     displayName: Deploy to Test env.
-    dependsOn: 
-      - Build
+    dependsOn: Build
     condition: and(ne(variables.deploy, 'none'), succeeded(), eq('${{ parameters.deployEnvironment }}', 'TEST'))
     jobs:
       - deployment: Deploy_to_Test
-        displayName: 'Deploy To Test'
-        continueOnError: true
+        displayName: Deploy to Test
+        condition: eq(variables.deploy, 'iac')
         strategy:
           runOnce:
-            deploy: 
-              steps: 
-                - ${{ if or(eq(variables.deploy, 'iac'), eq(variables.deploy, 'iac+code')) }}:
-                  - template: deploy-iac-pipeline.yaml
-                    parameters:
-                      deployEnvironment: ${{ parameters.deployEnvironment }}
-                      location: ${{ parameters.location }}
-
-                - ${{ if or(eq(variables.deploy, 'code'), eq(variables.deploy, 'iac+code')) }}:
-                  - template: deploy-code-pipeline.yaml
-                    parameters:
-                      deployEnvironment: ${{ parameters.deployEnvironment }}
-                      location: ${{ parameters.location }}
+            deploy:
+              steps:
+              - template: deploy-iac-pipeline.yaml
+                parameters:
+                  deployEnvironment: ${{ parameters.deployEnvironment }}
+                  location: ${{ parameters.location }}

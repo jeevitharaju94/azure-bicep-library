@@ -1,58 +1,65 @@
 parameters:
   - name: deployEnvironment
     type: string
-
   - name: location
     type: string
 
 steps:
-  - download: none
+- checkout: none
 
-  - task: DownloadPipelineArtifact@2
-    displayName: Download IaC artifact
-    inputs:
-      buildType: current
-      artifactName: iac
-      targetPath: '$(Pipeline.Workspace)/iac'
+- task: DownloadPipelineArtifact@2
+  displayName: 'Download iac templates'
+  inputs:
+    source: 'current'
+    artifactName: iac
+    targetPath: '$(Pipeline.Workspace)/iac'
 
-  - task: AzureCLI@2
-    displayName: Deploy Bicep infrastructure to ${{ parameters.deployEnvironment }}
-    inputs:
-      azureSubscription: $(subscription)
-      scriptType: bash
-      scriptLocation: inlineScript
-      inlineScript: |
-        set -euo pipefail
+- task: AzureCLI@2
+  displayName: 'Create resourcegroup if missing'
+  inputs:
+    azureSubscription: $(subscription)
+    scriptType: bash
+    scriptLocation: inlineScript
+    inlineScript: |
+      az group create --name $(resourceGroupName) --location '${{ parameters.location }}' --tags \
+      Environment='${{ parameters.deployEnvironment }}' \
+      Responsible=$(responsible)
 
-        template_file="$ARTIFACT_PATH/main.bicep"
-        parameter_file="$ARTIFACT_PATH/parameters/main.${DEPLOY_ENVIRONMENT}.bicepparam"
+- task: AzureCLI@2
+  displayName: 'Deploy iac code'
+  inputs:
+    azureSubscription: $(subscription)
+    scriptType: bash
+    scriptLocation: inlineScript
+    inlineScript: |
+        az deployment group create --name $(bicepDeploymentName) --mode Incremental --resource-group $(resourceGroupName) --template-file $(Pipeline.Workspace)/iac/main.bicep \
+        --parameters $(Pipeline.Workspace)/iac/parameters/main.${{ parameters.deployEnvironment }}.bicepparam
 
-        if [[ ! -f "$template_file" ]]; then
-          echo "Bicep template not found in downloaded artifact: $template_file" >&2
-          exit 1
-        fi
+- task: AzureCLI@2
+  displayName: 'Verify IaC deployment success'
+  inputs:
+    azureSubscription: $(subscription)
+    scriptType: bash
+    scriptLocation: inlineScript
+    inlineScript: |
+      deploymentOutput=$(az deployment group show --resource-group $(resourceGroupName) --name $(bicepDeploymentName))
+      provisioningState=$(echo $deploymentOutput | jq  '.properties | .provisioningState')
+      echo "provisioningState = $provisioningState"
+      if [ "$provisioningState" = "Failed" ]; then echo 'IaC Deploy FAILED'; else echo 'IaC Deploy Successful'; fi
+      if [ "$provisioningState" = "Failed" ]; then exit 1; fi
 
-        if [[ ! -f "$parameter_file" ]]; then
-          echo "Bicep parameter file not found in downloaded artifact: $parameter_file" >&2
-          exit 1
-        fi
-
-        location="$(printf '%s' "$LOCATION_DISPLAY" | tr -d ' ' | tr '[:upper:]' '[:lower:]')"
-
-        az group create \
-          --name "$RESOURCE_GROUP" \
-          --location "$location" \
-          --output none
-
-        az deployment group create \
-          --resource-group "$RESOURCE_GROUP" \
-          --name "$DEPLOYMENT_NAME" \
-          --template-file "$template_file" \
-          --parameters "$parameter_file" "location=$location" \
-          --output json
-    env:
-      ARTIFACT_PATH: '$(Pipeline.Workspace)/iac'
-      DEPLOY_ENVIRONMENT: ${{ parameters.deployEnvironment }}
-      DEPLOYMENT_NAME: $(bicepDeploymentName)
-      LOCATION_DISPLAY: ${{ parameters.location }}
-      RESOURCE_GROUP: $(resourceGroupName)
+- task: AzureCLI@2
+  displayName: 'Retrieve iac deployment output parameters'
+  inputs:
+    azureSubscription: $(subscription)
+    scriptType: bash
+    scriptLocation: inlineScript
+    inlineScript: |
+        deploymentoutputs=$(az deployment group show --resource-group $(resourceGroupName) --name $(bicepDeploymentName) --query properties.outputs)
+        echo $deploymentoutputs | jq -c '. | to_entries[] | [.key, .value.value]' |
+            while IFS=$"\n" read -r c; do
+              outputname=$(echo "$c" | jq -r '.[0]')
+              outputvalue=$(echo "$c" | jq -r '.[1]')
+              echo "$outputname = $outputvalue"
+              echo "##vso[task.setvariable variable=ARMOUT_$outputname]$outputvalue"
+            done
