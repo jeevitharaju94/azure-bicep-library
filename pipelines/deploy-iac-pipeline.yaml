@@ -22,8 +22,7 @@ steps:
     scriptLocation: inlineScript
     inlineScript: |
       az group create --name $(resourceGroupName) --location '${{ parameters.location }}' --tags \
-      Environment='${{ parameters.deployEnvironment }}' \
-      Responsible=$(responsible)
+      Environment='${{ parameters.deployEnvironment }}'
 
 - task: AzureCLI@2
   displayName: 'Deploy iac code'

@@ -58,7 +58,6 @@ stages:
     jobs:
       - job: ValidateBicepCode
         displayName: Validate Bicep code
-        continueOnError: true
         steps:
           - task: AzureCLI@2
             displayName: Run Preflight validation
